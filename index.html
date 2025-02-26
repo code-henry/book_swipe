@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本のレコメンデーション - Swipe & Tap</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f0f0f0;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      position: relative;
+    }
+    /* 上部のメッセージ表示エリア */
+    #message {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.5em;
+      color: #333;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    /* カードコンテナ */
+    #cardContainer {
+      position: relative;
+      width: 300px;
+      height: 500px;
+      overflow: visible;
+      margin-top: 75px;
+    }
+    /* カードのスタイル（影は削除） */
+    .card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      border-radius: 8px;
+      touch-action: none;
+      user-select: none;
+      transition: transform 0.3s ease;
+      will-change: transform;
+    }
+    .card img {
+      width: 100%;
+      height: 60%;
+      object-fit: cover;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      pointer-events: none;
+      touch-action: none;
+    }
+    .content {
+      padding: 15px;
+    }
+    /* 初期状態はあらすじのみ表示 */
+    .synopsis {
+      display: block;
+      margin-top: 10px;
+      color: #555;
+    }
+    /* 詳細情報（タイトル、著者、出版年）は非表示 */
+    .details {
+      display: none;
+      margin-top: 10px;
+    }
+    .details h2 {
+      margin: 0;
+      font-size: 1.2em;
+    }
+    .details p {
+      margin: 5px 0 0;
+      color: #555;
+    }
+    /* ボタンエリア：常に画面下部に表示 */
+    #buttons {
+      width: 300px;
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+    }
+    #buttons button {
+      flex: 1;
+      margin: 0 5px;
+      padding: 10px 0;
+      font-size: 1em;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    /* 「なし」ボタン */
+    #saveBtn {
+      background-color: #4CAF50;
+      color: #fff;
+    }
+    /* 「絶対読む！」ボタン（中央） */
+    #readBtn {
+      background-color: #2196F3;
+      color: #fff;
+    }
+    /* 「あり」ボタン */
+    #nextBtn {
+      background-color: #f44336;
+      color: #fff;
+    }
+    /* 保存リスト */
+    #savedList {
+      margin-top: 20px;
+      max-width: 300px;
+      background: #fff;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    #savedList h3 {
+      margin-top: 0;
+    }
+    #savedList ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    #savedList li {
+      padding: 5px 0;
+      border-bottom: 1px solid #ddd;
+    }
+    /* レスポンシブ対応（画面幅が320px未満の場合） */
+    @media screen and (max-width: 320px) {
+      #cardContainer, #buttons, #savedList {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 上部メッセージ -->
+  <div id="message"></div>
+  
+  <!-- カードコンテナ -->
+  <div id="cardContainer"></div>
+  
+  <!-- ボタンエリア（左：なし／中央：絶対読む！／右：あり） -->
+  <div id="buttons">
+    <button id="saveBtn">なし</button>
+    <button id="readBtn">絶対読む！</button>
+    <button id="nextBtn">あり</button>
+  </div>
+  
+  <!-- 保存リスト -->
+  <div id="savedList">
+    <h3>保存した本</h3>
+    <ul id="savedBooksList"></ul>
+  </div>
+
+  <!-- Hammer.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+  <script>
+    let booksData = [];
+    let currentIndex = 0;
+    const cardContainer = document.getElementById('cardContainer');
+    const messageEl = document.getElementById('message');
+    const saveBtn = document.getElementById('saveBtn');
+    const readBtn = document.getElementById('readBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const savedBooksList = document.getElementById('savedBooksList');
+
+    // JSONデータ取得
+    fetch('books.json')
+      .then(response => response.json())
+      .then(data => {
+        booksData = data;
+        loadCards();
+        initTopCard();
+      })
+      .catch(error => {
+        console.error("JSON読み込みエラー:", error);
+        messageEl.textContent = "データの読み込みに失敗しました";
+      });
+
+    // JSONデータからカードを生成してカードコンテナに配置
+    function loadCards() {
+      booksData.forEach(book => {
+        const card = createCard(book);
+        cardContainer.appendChild(card);
+      });
+    }
+
+    // 1枚のカード要素を生成する関数
+    function createCard(book) {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const img = document.createElement('img');
+      img.src = book.image;
+      img.alt = book.title;
+      card.appendChild(img);
+
+      const content = document.createElement('div');
+      content.className = 'content';
+
+      // 詳細情報（タイトル、著者、出版年）
+      const detailsDiv = document.createElement('div');
+      detailsDiv.className = 'details';
+      const titleEl = document.createElement('h2');
+      titleEl.textContent = book.title;
+      const authorEl = document.createElement('p');
+      authorEl.textContent = "著者: " + book.author;
+      const yearEl = document.createElement('p');
+      yearEl.textContent = "出版年: " + book.year;
+      detailsDiv.appendChild(titleEl);
+      detailsDiv.appendChild(authorEl);
+      detailsDiv.appendChild(yearEl);
+
+      // あらすじエリア
+      const synopsisEl = document.createElement('p');
+      synopsisEl.className = 'synopsis';
+      synopsisEl.textContent = book.synopsis;
+
+      // 初期状態はあらすじのみ表示
+      content.appendChild(synopsisEl);
+      content.appendChild(detailsDiv);
+      card.appendChild(content);
+      return card;
+    }
+
+    // 共通関数：上部メッセージを発火し、カードを切り替える（カードがアニメーションで左右にスライドアウト）
+    function animateCardOut(direction) {
+      const cards = document.querySelectorAll('.card');
+      if (!cards.length) return;
+      const topCard = cards[cards.length - 1];
+      topCard.style.transition = 'transform 0.5s ease-out';
+      if (direction === 'left') {
+        // 左へスワイプアウト（画面幅分左へ）
+        topCard.style.transform = `translate3d(-${window.innerWidth}px, 0, 0) rotate(-10deg)`;
+        messageEl.textContent = "左スワイプ：興味なし";
+      } else if (direction === 'right') {
+        // 右へスワイプアウト（画面幅分右へ）
+        topCard.style.transform = `translate3d(${window.innerWidth}px, 0, 0) rotate(10deg)`;
+        messageEl.textContent = "右スワイプ：この本に興味あり！";
+      }
+      setTimeout(() => {
+        topCard.remove();
+        initTopCard();
+      }, 500);
+    }
+
+    // 最上位のカードに対してHammer.jsを初期化
+    function initTopCard() {
+      const cards = document.querySelectorAll('.card');
+      if (cards.length === 0) {
+        messageEl.textContent = "すべてのカードを確認しました";
+        return;
+      }
+      const topCard = cards[cards.length - 1];
+      topCard.style.transform = 'translate3d(0, 0, 0)';
+      topCard.style.transition = 'none';
+      messageEl.textContent = '';
+
+      const hammer = new Hammer(topCard);
+      hammer.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+
+      let posX = 0, posY = 0;
+      let detailsVisible = false; // false:あらすじ, true:詳細情報
+
+      hammer.on('panmove', (ev) => {
+        posX = ev.deltaX;
+        posY = ev.deltaY;
+        topCard.style.transform = `translate3d(${posX}px, ${posY}px, 0) rotate(${posX / 10}deg)`;
+      });
+
+      hammer.on('panend', () => {
+        const threshold = 100;
+        if (Math.abs(posX) > threshold || Math.abs(posY) > threshold) {
+          const angle = Math.atan2(posY, posX);
+          const distance = Math.max(window.innerWidth, window.innerHeight);
+          const finalX = distance * Math.cos(angle);
+          const finalY = distance * Math.sin(angle);
+          topCard.style.transition = 'transform 0.5s ease-out';
+          topCard.style.transform = `translate3d(${finalX}px, ${finalY}px, 0) rotate(${posX / 10}deg)`;
+          
+          if (posX > threshold) {
+            messageEl.textContent = "右スワイプ：この本に興味あり！";
+          } else if (posX < -threshold) {
+            messageEl.textContent = "左スワイプ：興味なし";
+          }
+          hammer.destroy();
+          setTimeout(() => {
+            topCard.remove();
+            initTopCard();
+          }, 500);
+        } else {
+          topCard.style.transition = 'transform 0.3s ease';
+          topCard.style.transform = 'translate3d(0, 0, 0)';
+        }
+      });
+
+      hammer.on('tap', () => {
+        const content = topCard.querySelector('.content');
+        const synopsisEl = content.querySelector('.synopsis');
+        const detailsDiv = content.querySelector('.details');
+        if (!detailsVisible) {
+          synopsisEl.style.display = 'none';
+          detailsDiv.style.display = 'block';
+          detailsVisible = true;
+        } else {
+          detailsDiv.style.display = 'none';
+          synopsisEl.style.display = 'block';
+          detailsVisible = false;
+        }
+      });
+    }
+
+    // 左（なし）ボタンの処理
+    function leftButtonAction() {
+      animateCardOut("left");
+    }
+
+    // 右（あり）ボタンの処理
+    function rightButtonAction() {
+      animateCardOut("right");
+    }
+
+    // 絶対読む！ボタンの処理：保存リストに追加（カードはそのまま残す）
+    function absoluteReadAction() {
+      const currentBook = booksData[currentIndex];
+      const li = document.createElement('li');
+      li.textContent = currentBook.title + "（絶対読む！）";
+      savedBooksList.appendChild(li);
+      messageEl.textContent = "絶対読む！にチェック済み";
+    }
+
+    saveBtn.addEventListener('click', leftButtonAction);
+    nextBtn.addEventListener('click', rightButtonAction);
+    readBtn.addEventListener('click', absoluteReadAction);
+  </script>
+</body>
+</html>

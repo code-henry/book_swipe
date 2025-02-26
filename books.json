@@ -1,0 +1,37 @@
+[
+    {
+        "title": "ノルウェイの森",
+        "author": "村上春樹",
+        "year": "1987",
+        "synopsis": "村上春樹による青春と喪失の物語。1960年代の東京を背景に、若者たちの愛と孤独を描く感動作。",
+        "image": "https://placehold.jp/300x300.png"
+    },
+    {
+        "title": "1Q84",
+        "author": "村上春樹",
+        "year": "2009",
+        "synopsis": "現実と幻想が交錯する世界で、二人の男女が奇妙な運命に導かれる物語。独特な世界観が魅力。",
+        "image": "https://placehold.jp/300x300.png"
+    },
+    {
+        "title": "吾輩は猫である",
+        "author": "夏目漱石",
+        "year": "1905",
+        "synopsis": "夏目漱石の風刺小説。猫の視点から人間社会を鋭く描き出すユーモラスな名作。",
+        "image": "https://placehold.jp/300x300.png"
+    },
+    {
+        "title": "こころ",
+        "author": "夏目漱石",
+        "year": "1914",
+        "synopsis": "夏目漱石が描く、近代日本における人間の心の葛藤と孤独を綴った文学の名品。",
+        "image": "https://placehold.jp/300x300.png"
+    },
+    {
+        "title": "風と共に去りぬ",
+        "author": "マーガレット・ミッチェル",
+        "year": "1936",
+        "synopsis": "アメリカ南北戦争を舞台に、愛と生存、そして変わりゆく時代の中で揺れる人々の姿を描いた大作。",
+        "image": "https://placehold.jp/300x300.png"
+    }
+]

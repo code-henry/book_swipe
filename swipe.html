@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本のレコメンデーション - Tinder風カード</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f0f0f0;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+    /* メッセージ表示エリア */
+    #message {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.5em;
+      color: #333;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    /* カードを配置するコンテナ */
+    #cardContainer {
+      position: relative;
+      width: 300px;
+      height: 500px;
+    }
+    /* カードのスタイル */
+    .card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      border-radius: 8px;
+      /* box-shadow: 0 4px 8px rgba(0,0,0,0.2); */
+      touch-action: none;
+      user-select: none;
+      transition: transform 0.3s ease;
+      will-change: transform;
+    }
+    .card img {
+      width: 100%;
+      height: 60%;
+      object-fit: cover;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      pointer-events: none; /* 画像部分でもタッチイベントが伝播するように */
+      touch-action: none;
+    }
+    .content {
+      padding: 15px;
+    }
+    .content h2 {
+      margin: 0;
+      font-size: 1.2em;
+    }
+    .content p {
+      margin-top: 10px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <!-- メッセージ表示エリア -->
+  <div id="message"></div>
+  
+  <!-- カードコンテナ -->
+  <div id="cardContainer"></div>
+
+  <!-- Hammer.js の CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+  <script>
+    const cardContainer = document.getElementById('cardContainer');
+    const messageEl = document.getElementById('message');
+    let booksData = [];
+
+    // JSON ファイルから本データを取得し、カードを生成する
+    fetch('books.json')
+      .then(response => response.json())
+      .then(data => {
+        booksData = data;
+        loadCards();
+        initTopCard();
+      })
+      .catch(error => {
+        console.error('JSON読み込みエラー:', error);
+        messageEl.textContent = "データの読み込みに失敗しました";
+      });
+
+    // JSON データからカードを生成する関数
+    function createCard(book) {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const img = document.createElement('img');
+      img.src = book.image;
+      img.alt = book.title;
+      card.appendChild(img);
+
+      const content = document.createElement('div');
+      content.className = 'content';
+
+      const title = document.createElement('h2');
+      title.textContent = book.title;
+      content.appendChild(title);
+
+      const synopsis = document.createElement('p');
+      synopsis.textContent = book.synopsis;
+      content.appendChild(synopsis);
+
+      card.appendChild(content);
+      return card;
+    }
+
+    // JSON データからカードをすべて生成し、カードコンテナに下から順に配置する
+    function loadCards() {
+      booksData.forEach(book => {
+        const card = createCard(book);
+        cardContainer.appendChild(card);
+      });
+    }
+
+    // 最上位のカードに対して Hammer.js を初期化する関数
+    function initTopCard() {
+      const cards = document.querySelectorAll('.card');
+      if (cards.length === 0) {
+        messageEl.textContent = "すべてのカードを確認しました";
+        return;
+      }
+      // 最上位のカードは最後の要素
+      const topCard = cards[cards.length - 1];
+
+      // リセット
+      topCard.style.transform = 'translate3d(0, 0, 0)';
+      topCard.style.transition = 'none';
+      messageEl.textContent = '';
+
+      // Hammer.js のインスタンス作成（全方向のパンを有効化）
+      const hammer = new Hammer(topCard);
+      hammer.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+
+      let posX = 0, posY = 0;
+
+      hammer.on('panmove', (ev) => {
+        posX = ev.deltaX;
+        posY = ev.deltaY;
+        topCard.style.transform = `translate3d(${posX}px, ${posY}px, 0) rotate(${posX / 10}deg)`;
+      });
+
+      hammer.on('panend', () => {
+        const threshold = 100; // しきい値（px）
+        if (Math.abs(posX) > threshold || Math.abs(posY) > threshold) {
+          const angle = Math.atan2(posY, posX);
+          const distance = Math.max(window.innerWidth, window.innerHeight);
+          const finalX = distance * Math.cos(angle);
+          const finalY = distance * Math.sin(angle);
+          topCard.style.transition = 'transform 0.5s ease-out';
+          topCard.style.transform = `translate3d(${finalX}px, ${finalY}px, 0) rotate(${posX / 10}deg)`;
+
+          // 水平方向の動きでスワイプ判定
+          if (posX > threshold) {
+            messageEl.textContent = "右スワイプ：この本に興味あり！";
+          } else if (posX < -threshold) {
+            messageEl.textContent = "左スワイプ：興味なし";
+          }
+
+          hammer.destroy();
+
+          // カード削除後、次のカードを下から登場させる
+          setTimeout(() => {
+            topCard.remove();
+            const nextCard = document.querySelector('.card');
+            if (nextCard) {
+              // 初期位置を画面下部に設定し、中央にアニメーションで移動
+              nextCard.style.transform = `translate3d(0, ${window.innerHeight}px, 0)`;
+              nextCard.style.transition = 'transform 0.5s ease-out';
+              // reflow を発生させるため一度スタイルを適用
+              void nextCard.offsetWidth;
+              nextCard.style.transform = 'translate3d(0, 0, 0)';
+              initTopCard();
+            } else {
+              messageEl.textContent = "すべてのカードを確認しました";
+            }
+          }, 500);
+        } else {
+          // しきい値に満たなければ元の位置に戻す
+          topCard.style.transition = 'transform 0.3s ease';
+          topCard.style.transform = 'translate3d(0, 0, 0)';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
